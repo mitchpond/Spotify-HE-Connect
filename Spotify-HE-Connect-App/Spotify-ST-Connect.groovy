@@ -1,5 +1,5 @@
 /**
- *  Spotify-HE Connect
+ *  Spotify-HE-ST Connect
  *
  *  Copyright 2018 Mitch Pond
  *
@@ -13,18 +13,12 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
- /**
-Spotify-HE Connect - (c) 2018 Mitch Pond
-
-Service manager app for Hubitat Elevation to enable status display and control of Spotify Connect players
-
-**/
 
 definition(
     name:           "Spotify-HE Connect",
     namespace:      "mitchpond",
     author:         "Mitch Pond",
-    description:    "Service manager app for Hubitat Elevation to enable status display and control of Spotify Connect players",
+    description:    "Service manager app for Hubitat Elevation and SmartThings to enable status display and control of Spotify Connect players",
     category:       "Fun & Social",
     iconUrl: 		"https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
     iconX2Url: 		"https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
@@ -143,7 +137,11 @@ def installed() {
 }
 
 def updated() {
-    //TODO
+    initialize()
+}
+
+def initialize() {
+
 }
 
 def getSpotifyDevices() {
@@ -188,7 +186,17 @@ def getChildDevices() {
     //TODO
 }
 
-def getChildDevice
+def createChildDevice() {
+    //TODO
+}
+
+def removeChildDevice() {
+    //TODO
+}
+
+def removeAllChildDevices() {
+    //TODO
+}
 
 def getAccessToken(){
     state.accessToken = state.accessToken? it : createAccessToken()
