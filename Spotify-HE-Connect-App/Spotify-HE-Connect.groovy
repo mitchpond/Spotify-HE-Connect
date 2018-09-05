@@ -40,7 +40,8 @@ def updated() {
 def initOAuth(){
     //TODO
 }
-        
+
+//This is not correct...        
 def authPage() {
     getAccessToken()
     log.debug "Full API Server URL: ${getFullApiServerUrl()}"
@@ -62,7 +63,7 @@ def oAuthInit() {
     log.debug "Cloud API URL: ${getFullApiServerUrl()}"
     
     def oAuthParams = [ response_type:  "code",
-                        client_id:      getSpotifyClientId(),
+                        client_id:      spotifyClientId,
                         redirect_uri:   "https://cloud.hubitat.com/api/cffd7747-9fa5-4fd9-97c8-7de7027f4425/apps/110/oauth/callback",
                         state:          "${state.oAuthInitState}",
                         scope:          "user-read-playback-state",
