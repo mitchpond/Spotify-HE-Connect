@@ -44,7 +44,8 @@ private getCallbackUrl() { "https://graph.api.smartthings.com/oauth/callback" }
 private getApiScopes() { "user-read-playback-state" }
 private getApiUrl()	{ "https://api.spotify.com" }
 private getTokenUrl() { "https://accounts.spotify.com/api/token" }
-private getListDevicesEndpoint() { "/v1/me/player/devices" }
+private getSpotifyListDevicesEndpoint() { "/v1/me/player/devices" }
+private getSpotifyNowPlayingEndpoint() { "/v1/me/player/currently-playing" }
 
 mappings {
     path("/oauth/initialize")   {action:    [GET:  "oauthInitUrl"]}
@@ -52,39 +53,42 @@ mappings {
 }
 
 preferences {
-    page(name: "Authorize", title: "Log in to Spotify", content: "authPage", nextPage: "", install: "false")
+    page(name: "setup", title: "Spotify (Connect) for Hubitat Elevation/SmartThings", nextPage: "", install: true, uninstall: true)
+    page(name: "Credentials", title: "Log in to Spotify", content: "authPage", nextPage: "")
 }
 
-def installed() {
-    log.debug("Installed Spotify-HE Connect service manager")
-    //TODO
-}
-
-def updated() {
-    //TODO
+def setup() {
+    dynamicPage(name: "setup", install: true, uninstall: true){
+        section{
+            href(page: "Credentials", title: "Manage Spotify permissions")
+            //href(page: "Devices", title: "")
+        }
+    }
 }
       
 def authPage() {
     if(!state.accessToken) createAccessToken()
-    log.debug "API Server URL: ${getApiServerUrl()}"
-    log.debug state.accessToken
+
     def redirectUrl = "${getApiServerUrl()}/oauth/initialize?appId=${app.id}&access_token=${state.accessToken}&apiServerUrl=${getApiServerUrl()}"
+    
     if(!state.authToken){
     	log.debug "No authToken yet, sending user to Spotify..."
-   	 	return dynamicPage(name: "Authorize", title: "Login", nextPage: "", uninstall: true) {
+   	 	return dynamicPage(name: "Credentials", title: "Login", nextPage: "") {
             section {
                 paragraph "Click below to connect with Spotify"
-                log.debug "Redirect URL: ${redirectUrl}"
                 href(url: redirectUrl, style: "embedded", required: true, title: "Spotify Connect", description: "Click to connect")
             }
     	}
     }
     else {
     	log.debug "authToken found"
-        getSpotifyDevices()
-        return dynamicPage(name: "Authorize", title: "Connected to Spotify", install: true, uninstall: true) {
+        return dynamicPage(name: "Credentials", title: "Connected to Spotify") {
+            section {
+                paragraph "You are logged in to Spotify"
+                href(url:"", title: "Log out of Spotify", description: "")
+            }
         	section {
-            	paragraph "Select your devices"
+            	paragraph "Select devices to install.\nYou may return to this menu to add or remove devices at any time."
                 input(name: "devices", type: "enum", title: "Devices", multiple: true, options: state.spotifyDevices.devices*.name)
             }
         }
@@ -94,7 +98,7 @@ def authPage() {
 def oauthInitUrl() {
 	log.debug "Entered OAuth init..."
     state.oAuthInitState = UUID.randomUUID().toString()
-    log.debug "Sending oAuth state of: ${state.oAuthInitState}"
+    //log.debug "Sending oAuth state of: ${state.oAuthInitState}"
     
     def oAuthParams = [ response_type:  "code",
                         client_id:      spotifyClientId,
@@ -125,34 +129,52 @@ def callback(){
             state.expiresIn = resp.data.expires_in
         }
         
-        log.debug "API access token: ${state.authToken}"
-        log.debug "API scope: ${state.scope}"
-        log.debug "API refresh token: ${state.refreshToken}"
+        //log.debug "API access token: ${state.authToken}"
+        //log.debug "API scope: ${state.scope}"
+        //log.debug "API refresh token: ${state.refreshToken}"
         
         if (state.authToken) "Successfully connected!"
     }
 }
 
-def getSpotifyDevices() {
-	getNewAuthToken()
+def installed() {
+    log.debug("Installed Spotify-HE Connect service manager")
+    //TODO
+}
 
-	def reqUri = apiUrl + listDevicesEndpoint
+def updated() {
+    //TODO
+}
+
+def getSpotifyDevices() {
+	refreshAuthToken()
+
+	def reqUri = apiUrl + spotifyListDevicesEndpoint
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
-    
-    //log.debug reqUri
-    //log.debug reqHeader
-    
+
     httpGet(uri: reqUri, headers: reqHeader) { resp ->
     	//log.debug resp.data
         state.spotifyDevices = resp.data
     }
 }
 
-def getNewAuthToken() {
+def getSpotifyNowPlaying() {
+    refreshAuthToken()
+
+    def reqUri = apiUrl + spotifyNowPlayingEndpoint
+    def reqHeader = [Authorization: "Bearer ${state.authToken}"]
+
+    httpGet(uri: reqUri, headers: reqHeader) { resp ->
+    	log.debug resp.data
+        state.spotifyNowPlaying = resp.data
+    }
+}
+
+def refreshAuthToken() {
 	def reqBody = [	grant_type:		"refresh_token",
                     refresh_token:	state.refreshToken]
     def reqHeader = [Authorization: "Basic ${(spotifyClientId + ":" + spotifyClientSecret).bytes.encodeBase64()}"]
-    //log.debug reqHeader
+
     httpPost(uri: tokenUrl, body: reqBody, headers: reqHeader) { resp ->
     	if(resp.status == 200){
         	log.debug "Refreshed Spotify auth token"
@@ -161,6 +183,12 @@ def getNewAuthToken() {
         } else log.debug "Error refreshing Spotify auth token"
     }
 }
+
+def getChildDevices() {
+    //TODO
+}
+
+def getChildDevice
 
 def getAccessToken(){
     state.accessToken = state.accessToken? it : createAccessToken()
