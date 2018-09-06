@@ -76,6 +76,7 @@ def authPage() {
     }
     else {
     	log.debug "authToken found"
+        getSpotifyDevices()
         return dynamicPage(name: "Credentials", title: "Connected to Spotify") {
             section {
                 paragraph "You are logged in to Spotify"
@@ -83,7 +84,7 @@ def authPage() {
             }
         	section {
             	paragraph "Select devices to install.\nYou may return to this menu to add or remove devices at any time."
-                input(name: "devices", type: "enum", title: "Devices", multiple: true, options: state.spotifyDevices.devices*.name)
+                input(name: "selectedDevices", type: "enum", title: "Devices", multiple: true, required: false, options: getSettingsDeviceList())
             }
         }
     }
@@ -131,43 +132,6 @@ def callback(){
     }
 }
 
-def installed() {
-    log.debug("Installed Spotify-HE Connect service manager")
-    //TODO
-}
-
-def updated() {
-    initialize()
-}
-
-def initialize() {
-
-}
-
-def getSpotifyDevices() {
-	refreshAuthToken()
-
-	def reqUri = apiUrl + spotifyListDevicesEndpoint
-    def reqHeader = [Authorization: "Bearer ${state.authToken}"]
-
-    httpGet(uri: reqUri, headers: reqHeader) { resp ->
-    	//log.debug resp.data
-        state.spotifyDevices = resp.data
-    }
-}
-
-def getSpotifyNowPlaying() {
-    refreshAuthToken()
-
-    def reqUri = apiUrl + spotifyNowPlayingEndpoint
-    def reqHeader = [Authorization: "Bearer ${state.authToken}"]
-
-    httpGet(uri: reqUri, headers: reqHeader) { resp ->
-    	log.debug resp.data
-        state.spotifyNowPlaying = resp.data
-    }
-}
-
 def refreshAuthToken() {
 	def reqBody = [	grant_type:		"refresh_token",
                     refresh_token:	state.refreshToken]
@@ -182,12 +146,65 @@ def refreshAuthToken() {
     }
 }
 
-def getChildDevices() {
+def installed() {
+    log.debug("Installed Spotify-HE Connect service manager")
     //TODO
 }
 
-def createChildDevice() {
-    //TODO
+def updated() {
+    initialize()
+}
+
+def initialize() {
+    createChildDevices()
+}
+
+def getSpotifyDevices() {
+	refreshAuthToken()
+
+	def reqUri = apiUrl + spotifyListDevicesEndpoint
+    def reqHeader = [Authorization: "Bearer ${state.authToken}"]
+
+    httpGet(uri: reqUri, headers: reqHeader) { resp ->
+    	//log.debug resp.data
+        state.spotifyDevices = resp.data
+    }
+
+    updateDeviceMap()
+}
+
+def updateDeviceMap() {
+    state.spotifyDevices.devices.each { device ->
+        state.deviceMap[device.id] = device.name
+    }
+}
+
+def getSettingsDeviceList(){
+    def devMap = [:]
+    state.spotifyDevices.devices.each { device ->
+        devMap[device.id] = device.name
+    }
+    return devMap
+}
+
+def getSpotifyNowPlaying() {
+    refreshAuthToken()
+
+    def reqUri = apiUrl + spotifyNowPlayingEndpoint
+    def reqHeader = [Authorization: "Bearer ${state.authToken}"]
+
+    httpGet(uri: reqUri, headers: reqHeader) { resp ->
+    	log.debug resp.data
+        state.spotifyNowPlaying = resp.data
+    }
+}
+
+def createChildDevices() {
+    settings.selectedDevices.each { devId ->
+        //log.debug "Checking for device with DNI ${devId}"
+        if (getChildDevice(devId)) log.debug "Child device with DNI ${devId} already exists."
+        else addChildDevice("mitchpond", "Spotify-Connect-Device", devId, null, [name: "Spotify.${devId}", label: deviceMap[devId], completedSetup: true])
+    }
 }
 
 def removeChildDevice() {
@@ -195,7 +212,7 @@ def removeChildDevice() {
 }
 
 def removeAllChildDevices() {
-    //TODO
+    removeChildDevices(getChildDevices())
 }
 
 def getAccessToken(){
