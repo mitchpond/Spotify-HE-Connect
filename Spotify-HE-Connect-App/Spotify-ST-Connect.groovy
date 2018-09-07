@@ -35,11 +35,11 @@ definition(
 private getSpotifyClientId() { "3777d6e19dad4b46851423d34ffee2a0" }
 private getSpotifyClientSecret() { "eb9a1caad5f34ababb6bf494b9ce0364" }
 private getCallbackUrl() { "https://graph.api.smartthings.com/oauth/callback" }
-private getApiScopes() { "user-read-playback-state" }
+private getApiScopes() { "user-read-playback-state user-modify-playback-state" }
 private getApiUrl()	{ "https://api.spotify.com" }
 private getTokenUrl() { "https://accounts.spotify.com/api/token" }
 private getSpotifyListDevicesEndpoint() { "/v1/me/player/devices" }
-private getSpotifyNowPlayingEndpoint() { "/v1/me/player/currently-playing" }
+private getSpotifyNowPlayingEndpoint() { "/v1/me/player" }
 
 mappings {
     path("/oauth/initialize")   {action:    [GET:  "oauthInitUrl"]}
@@ -148,15 +148,22 @@ def refreshAuthToken() {
 
 def installed() {
     log.debug("Installed Spotify-HE Connect service manager")
-    //TODO
+    initialize()
 }
 
 def updated() {
+    unschedule()
     initialize()
 }
 
 def initialize() {
     createChildDevices()
+    poll()
+    runEvery5Minutes(poll)
+}
+
+def poll() {
+    updateNowPlaying()
 }
 
 def getSpotifyDevices() {
@@ -169,19 +176,49 @@ def getSpotifyDevices() {
     	//log.debug resp.data
         state.spotifyDevices = resp.data
     }
-
     updateDeviceMap()
+    //updateNowPlaying()
 }
 
 def updateDeviceMap() {
-    state.spotifyDevices.devices.each { device ->
+	if (!state.deviceMap) state.deviceMap = [:]
+    state.spotifyDevices?.devices.each { device ->
         state.deviceMap[device.id] = device.name
+    }
+}
+
+// def updateDeviceStatus(){
+//     getSpotifyNowPlaying()
+//     def devs = getChildDevices()
+//     devs.each { dev ->
+//         if ((state.spotifyDevices.find{it.value.id == dev.dni})
+//     }
+//     if (!state.spotifyNowPlaying.is_Playing)
+//         devs.each { dev ->
+//             dev.generateEvent("")
+//         }
+// }
+
+def updateNowPlaying(){
+    log.debug "Updating Now Playing..."
+    getSpotifyNowPlaying()
+    if  (state.spotifyNowPlaying.is_playing) {
+    	log.debug "We're playing, so update the playing device"
+        def dev = getChildDevice(state.spotifyNowPlaying.device.id)
+        dev.generateEvent(["status":"playing"])
+        dev.generateEvent(["trackDescription":"${state.spotifyNowPlaying.item.name}\n${state.spotifyNowPlaying.item.album.name}\n${state.spotifyNowPlaying.item.artists[0].name}"])
+        dev.generateEvent(["level":state.spotifyNowPlaying.device.volume_percent])
+
+        runIn((state.spotifyNowPlaying.item.duration_ms - state.spotifyNowPlaying.progress_ms)/1000, updateNowPlaying)
+    } else {
+    	log.debug "Not playing. Updating devices."
+        getAllChildDevices()*.generateEvent(["status":"stopped"])
     }
 }
 
 def getSettingsDeviceList(){
     def devMap = [:]
-    state.spotifyDevices.devices.each { device ->
+    state.spotifyDevices?.devices.each { device ->
         devMap[device.id] = device.name
     }
     return devMap
@@ -194,25 +231,46 @@ def getSpotifyNowPlaying() {
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
 
     httpGet(uri: reqUri, headers: reqHeader) { resp ->
-    	log.debug resp.data
         state.spotifyNowPlaying = resp.data
     }
+}
+
+def setSpotifyPlaybackState(playbackState) {
+    refreshAuthToken()
+
+    def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
+    def reqHeader = [Authorization: "Bearer ${state.authToken}"]
+
+    httpPut(uri: reqUri, headers: reqHeader) { resp ->
+        if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
+    }
+}
+
+def play() {
+	log.debug "Device called 'play'"
+    setSpotifyPlaybackState("play")
+}
+
+def pause() {
+    setSpotifyPlaybackState("pause")
 }
 
 def createChildDevices() {
     settings.selectedDevices.each { devId ->
         //log.debug "Checking for device with DNI ${devId}"
         if (getChildDevice(devId)) log.debug "Child device with DNI ${devId} already exists."
-        else addChildDevice("mitchpond", "Spotify-Connect-Device", devId, null, [name: "Spotify.${devId}", label: deviceMap[devId], completedSetup: true])
+        else addChildDevice("mitchpond", "Spotify-Connect-Device", devId, null, [name: "Spotify.${devId}", label: state.deviceMap[devId], completedSetup: true])
     }
 }
 
-def removeChildDevice() {
+def removeChildDevice(dni) {
     //TODO
 }
 
 def removeAllChildDevices() {
-    removeChildDevices(getChildDevices())
+    getAllChildDevices().each { dev ->
+    	deleteChildDevice(dev.deviceNetworkId)
+    }
 }
 
 def getAccessToken(){

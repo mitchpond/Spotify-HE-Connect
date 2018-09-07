@@ -16,16 +16,56 @@
 metadata {
 	definition (name: "Spotify-Connect-Device", namespace: "mitchpond", author: "Mitch Pond") {
 		capability "Audio Mute"
-		capability "Audio Track Data"
-		capability "Media Playback"
-		capability "Media Playback Repeat"
-		capability "Media Playback Shuffle"
-		capability "Media Track Control"
+		//capability "Audio Track Data"
+		//capability "Media Playback"
+		//capability "Media Playback Repeat"
+		//capability "Media Playback Shuffle"
+		//capability "Media Track Control"
 		capability "Music Player"
+		capability "Refresh"
+        capability "Polling"
+        
+        command refresh
 	}
 
 	tiles {
-		// TODO: define your main and details tiles here
+		tiles(scale: 2) {
+			multiAttributeTile(name: "mediaMulti", type:"mediaPlayer", width:6, height:4) {
+				tileAttribute("device.status", key: "PRIMARY_CONTROL") {
+					attributeState("paused", label:"Paused",)
+					attributeState("playing", label:"Playing")
+					attributeState("stopped", label:"Stopped")
+				}
+				tileAttribute("device.status", key: "MEDIA_STATUS") {
+					attributeState("paused", label:"Paused", action:"musicPlayer.play")
+					attributeState("playing", label:"Playing", action:"musicPlayer.pause")
+					attributeState("stopped", label:"Stopped", action:"musicPlayer.play")
+				}
+				tileAttribute("device.status", key: "PREVIOUS_TRACK") {
+					attributeState("status", action:"musicPlayer.previousTrack", defaultState: true)
+				}
+				tileAttribute("device.status", key: "NEXT_TRACK") {
+					attributeState("status", action:"musicPlayer.nextTrack", defaultState: true)
+				}
+				tileAttribute ("device.level", key: "SLIDER_CONTROL") {
+					attributeState("level", action:"musicPlayer.setLevel")
+				}
+				tileAttribute ("device.mute", key: "MEDIA_MUTED") {
+					attributeState("unmuted", action:"musicPlayer.mute", nextState: "muted")
+					attributeState("muted", action:"musicPlayer.unmute", nextState: "unmuted")
+				}
+				tileAttribute("device.trackDescription", key: "MARQUEE") {
+					attributeState("trackDescription", label:"${currentValue}", defaultState: true)
+       			}
+            }
+      		standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat") {
+				state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh", backgroundColor:"#ffffff"
+			}
+
+    main "mediaMulti"
+    details(["mediaMulti","refresh"])
+}
+
 	}
 }
 
@@ -46,6 +86,21 @@ def parse(String description) {
 
 }
 
+def generateEvent(Map results) {
+  results.each { name, value ->
+    sendEvent(name: name, value: value)
+  }
+  return null
+}
+
+def refresh(){
+	parent.updateNowPlaying()
+}
+
+def poll() {
+	refresh()
+}
+
 // handle commands
 def setMute() {
 	log.debug "Executing 'setMute'"
@@ -53,8 +108,7 @@ def setMute() {
 }
 
 def mute() {
-	log.debug "Executing 'mute'"
-	// TODO: handle 'mute' command
+	//parent.mute(this)
 }
 
 def unmute() {
@@ -68,13 +122,11 @@ def setPlaybackStatus() {
 }
 
 def play() {
-	log.debug "Executing 'play'"
-	// TODO: handle 'play' command
+	parent.play()
 }
 
 def pause() {
-	log.debug "Executing 'pause'"
-	// TODO: handle 'pause' command
+	parent.pause()
 }
 
 def stop() {
