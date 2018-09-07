@@ -25,7 +25,7 @@ metadata {
 		capability "Refresh"
         capability "Polling"
         
-        command refresh
+        command "refresh"
 	}
 
 	tiles {
@@ -102,79 +102,77 @@ def poll() {
 }
 
 // handle commands
-def setMute() {
+void setMute() {
 	log.debug "Executing 'setMute'"
 	// TODO: handle 'setMute' command
 }
 
-def mute() {
+void mute() {
 	//parent.mute(this)
 }
 
-def unmute() {
+void unmute() {
 	log.debug "Executing 'unmute'"
 	// TODO: handle 'unmute' command
 }
 
-def setPlaybackStatus() {
+void setPlaybackStatus() {
 	log.debug "Executing 'setPlaybackStatus'"
 	// TODO: handle 'setPlaybackStatus' command
 }
 
-def play() {
+void play() {
 	parent.play()
 }
 
-def pause() {
+void pause() {
 	parent.pause()
 }
 
-def stop() {
+void stop() {
 	log.debug "Executing 'stop'"
 	// TODO: handle 'stop' command
 }
 
-def setPlaybackRepeatMode() {
+void setPlaybackRepeatMode() {
 	log.debug "Executing 'setPlaybackRepeatMode'"
 	// TODO: handle 'setPlaybackRepeatMode' command
 }
 
-def setPlaybackShuffle() {
+void setPlaybackShuffle() {
 	log.debug "Executing 'setPlaybackShuffle'"
 	// TODO: handle 'setPlaybackShuffle' command
 }
 
-def nextTrack() {
-	log.debug "Executing 'nextTrack'"
-	// TODO: handle 'nextTrack' command
+void nextTrack() {
+	parent.nextTrack()
 }
 
-def previousTrack() {
-	log.debug "Executing 'previousTrack'"
-	// TODO: handle 'previousTrack' command
+void previousTrack() {
+	parent.previousTrack()
 }
 
-def playTrack() {
+void playTrack() {
 	log.debug "Executing 'playTrack'"
 	// TODO: handle 'playTrack' command
 }
 
-def setLevel() {
+void setLevel() {
 	log.debug "Executing 'setLevel'"
 	// TODO: handle 'setLevel' command
 }
 
-def setTrack() {
+void setTrack() {
 	log.debug "Executing 'setTrack'"
 	// TODO: handle 'setTrack' command
 }
 
-def resumeTrack() {
+void resumeTrack() {
 	log.debug "Executing 'resumeTrack'"
 	// TODO: handle 'resumeTrack' command
 }
 
-def restoreTrack() {
+void restoreTrack() {
 	log.debug "Executing 'restoreTrack'"
 	// TODO: handle 'restoreTrack' command
 }

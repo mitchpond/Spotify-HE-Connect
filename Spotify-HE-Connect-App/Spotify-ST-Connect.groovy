@@ -99,7 +99,7 @@ def oauthInitUrl() {
                         client_id:      spotifyClientId,
                         redirect_uri:   callbackUrl,
                         state:          "${state.oAuthInitState}",
-                        scope:          "user-read-playback-state",
+                        scope:          apiScopes,
                         show_dialog:    "false"]
     redirect(location: "https://accounts.spotify.com/authorize?${toQueryString(oAuthParams)}")
 }
@@ -202,12 +202,12 @@ def updateDeviceMap() {
 def updateNowPlaying(){
     log.debug "Updating Now Playing..."
     getSpotifyNowPlaying()
-    if  (state.spotifyNowPlaying.is_playing) {
+    def playingDevice = state.spotifyNowPlaying.device.id ? getChildDevice(state.spotifyNowPlaying.device.id) : null
+    if  (state.spotifyNowPlaying.is_playing && playingDevice) {
     	log.debug "We're playing, so update the playing device"
-        def dev = getChildDevice(state.spotifyNowPlaying.device.id)
-        dev.generateEvent(["status":"playing"])
-        dev.generateEvent(["trackDescription":"${state.spotifyNowPlaying.item.name}\n${state.spotifyNowPlaying.item.album.name}\n${state.spotifyNowPlaying.item.artists[0].name}"])
-        dev.generateEvent(["level":state.spotifyNowPlaying.device.volume_percent])
+        playingDevice.generateEvent(["status":"playing"])
+        playingDevice.generateEvent(["trackDescription":"${state.spotifyNowPlaying.item.name}\n${state.spotifyNowPlaying.item.album.name}\n${state.spotifyNowPlaying.item.artists[0].name}"])
+        playingDevice.generateEvent(["level":state.spotifyNowPlaying.device.volume_percent])
 
         runIn((state.spotifyNowPlaying.item.duration_ms - state.spotifyNowPlaying.progress_ms)/1000, updateNowPlaying)
     } else {
@@ -231,7 +231,8 @@ def getSpotifyNowPlaying() {
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
 
     httpGet(uri: reqUri, headers: reqHeader) { resp ->
-        state.spotifyNowPlaying = resp.data
+        if (resp.data) state.spotifyNowPlaying = resp.data
+        else state.spotifyNowPlaying = [is_playing: false]
     }
 }
 
@@ -247,12 +248,19 @@ def setSpotifyPlaybackState(playbackState) {
 }
 
 def play() {
-	log.debug "Device called 'play'"
     setSpotifyPlaybackState("play")
 }
 
 def pause() {
     setSpotifyPlaybackState("pause")
+}
+
+def nextTrack() {
+    setSpotifyPlaybackState("next")
+}
+
+def previousTrack() {
+    setSpotifyPlaybackState("previous")
 }
 
 def createChildDevices() {
