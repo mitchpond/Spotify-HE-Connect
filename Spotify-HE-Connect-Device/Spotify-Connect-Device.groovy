@@ -122,11 +122,11 @@ void setPlaybackStatus() {
 }
 
 void play() {
-	parent.play()
+	parent.play(this)
 }
 
 void pause() {
-	parent.pause()
+	parent.pauseTrack(this)
 }
 
 void stop() {

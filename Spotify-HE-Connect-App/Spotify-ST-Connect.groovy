@@ -202,7 +202,7 @@ def updateDeviceMap() {
 def updateNowPlaying(){
     log.debug "Updating Now Playing..."
     getSpotifyNowPlaying()
-    def playingDevice = state.spotifyNowPlaying.device.id ? getChildDevice(state.spotifyNowPlaying.device.id) : null
+    def playingDevice = state.spotifyNowPlaying.device?.id ? getChildDevice(state.spotifyNowPlaying.device.id) : null
     if  (state.spotifyNowPlaying.is_playing && playingDevice) {
     	log.debug "We're playing, so update the playing device"
         playingDevice.generateEvent(["status":"playing"])
@@ -236,23 +236,36 @@ def getSpotifyNowPlaying() {
     }
 }
 
-def setSpotifyPlaybackState(playbackState) {
+boolean setSpotifyPlaybackState(playbackState) {
     refreshAuthToken()
 
     def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
-
-    httpPut(uri: reqUri, headers: reqHeader) { resp ->
-        if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
+    try {
+        if (playbackState in ["play","pause"]) {
+            httpPut(uri: reqUri, headers: reqHeader) { resp ->
+                if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
+            }
+        } else if (playbackState in ["next","previous"]) {
+            
+            httpPost(uri: reqUri, headers: reqHeader) { resp ->
+                if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
+            }
+        }
+    } catch(groovyx.net.http.HttpResponseException e) {
+        if (playbackState in ["next","previous"] && e.statusCode == 403)
+            log.debug "Could not get ${playbackState} track. End of list."
+        return false
     }
+    return true
 }
 
-def play() {
-    setSpotifyPlaybackState("play")
+def play(device) {
+    if(setSpotifyPlaybackState("play")) device.generateEvent(["status":"playing"])
 }
-
-def pause() {
-    setSpotifyPlaybackState("pause")
+//Can't use pause() as this is reserved
+def pauseTrack(device) {
+    if(setSpotifyPlaybackState("pause")) device.generateEvent(["status":"paused"])
 }
 
 def nextTrack() {
