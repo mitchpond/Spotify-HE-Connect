@@ -225,17 +225,22 @@ def getSpotifyNowPlaying() {
 }
 
 boolean setSpotifyPlaybackState(playbackState, uri = null) {
-    if (uri) {
-        parseSpotifyUri(uri)
-    }
+    if (uri) def itemToPlay = parseSpotifyUri(uri)
 
     refreshAuthToken()
 
     def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
+    def reqBody = [:]
+    if (itemToPlay.type in ["album","artist","playlist"]) {
+        reqBody = [context_uri: "spotify:${itemToPlay.type}:${itemToPlay.id}"]
+    } 
+    else if (itemToPlay.type == "track") {
+        reqBody = [context_uri: "[uris: [spotify:${itemToPlay.type}:${itemToPlay.id}]"]
+    }
     try {
         if (playbackState in ["play","pause"]) {
-            httpPut(uri: reqUri, headers: reqHeader) { resp ->
+            httpPut(uri: reqUri, headers: reqHeader, body: reqBody) { resp ->
                 if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
             }
         } else if (playbackState in ["next","previous"]) {
@@ -252,7 +257,7 @@ boolean setSpotifyPlaybackState(playbackState, uri = null) {
     return true
 }
 
-def play(device, uri = null) {
+def playTrack(device, uri = null) {
     if(setSpotifyPlaybackState("play", uri)) device.generateEvent(["status":"playing"])
 }
 //Can't use pause() as this is reserved
@@ -288,6 +293,18 @@ def removeAllChildDevices() {
 
 def getAccessToken(){
     state.accessToken = state.accessToken? it : createAccessToken()
+}
+
+//Parse the web URI into a Spotify API URI.
+//Returns: Map (type: String, id: String)
+Map parseSpotifyUri(uri) {
+    def webUri = new URI(uri)
+    if (webUri.host == "open.spotify.com") {
+        def type = webUri.getPath().split("/").getAt(1)
+        def id = webUri.getPath().split("/").getAt(2)
+        return ["type": type, "id": id]
+    }
+    return null
 }
 
 String toQueryString(Map m) {
