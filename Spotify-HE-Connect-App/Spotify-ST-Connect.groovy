@@ -187,18 +187,6 @@ def updateDeviceMap() {
     }
 }
 
-// def updateDeviceStatus(){
-//     getSpotifyNowPlaying()
-//     def devs = getChildDevices()
-//     devs.each { dev ->
-//         if ((state.spotifyDevices.find{it.value.id == dev.dni})
-//     }
-//     if (!state.spotifyNowPlaying.is_Playing)
-//         devs.each { dev ->
-//             dev.generateEvent("")
-//         }
-// }
-
 def updateNowPlaying(){
     log.debug "Updating Now Playing..."
     getSpotifyNowPlaying()
@@ -236,7 +224,11 @@ def getSpotifyNowPlaying() {
     }
 }
 
-boolean setSpotifyPlaybackState(playbackState) {
+boolean setSpotifyPlaybackState(playbackState, uri = null) {
+    if (uri) {
+        parseSpotifyUri(uri)
+    }
+
     refreshAuthToken()
 
     def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
@@ -260,8 +252,8 @@ boolean setSpotifyPlaybackState(playbackState) {
     return true
 }
 
-def play(device) {
-    if(setSpotifyPlaybackState("play")) device.generateEvent(["status":"playing"])
+def play(device, uri = null) {
+    if(setSpotifyPlaybackState("play", uri)) device.generateEvent(["status":"playing"])
 }
 //Can't use pause() as this is reserved
 def pauseTrack(device) {

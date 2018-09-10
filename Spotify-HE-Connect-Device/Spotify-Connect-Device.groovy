@@ -152,6 +152,7 @@ void previousTrack() {
 	parent.previousTrack()
 }
 
+//Play Spotify Album/Playlist/Track URI
 void playTrack() {
 	log.debug "Executing 'playTrack'"
 	// TODO: handle 'playTrack' command
