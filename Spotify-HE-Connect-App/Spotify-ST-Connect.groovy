@@ -301,3 +301,7 @@ def getAccessToken(){
 String toQueryString(Map m) {
 	return m.collect { k, v -> "${k}=${URLEncoder.encode(v.toString())}" }.sort().join("&")
 }
+
+private isHubitat(){
+ 	return hubUID != null   
+}
