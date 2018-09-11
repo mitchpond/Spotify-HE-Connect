@@ -15,7 +15,7 @@
  */
 metadata {
 	definition (name: "Spotify-Connect-Device", namespace: "mitchpond", author: "Mitch Pond") {
-		capability "Audio Mute"
+		//capability "Audio Mute"
 		//capability "Audio Track Data"
 		//capability "Media Playback"
 		//capability "Media Playback Repeat"

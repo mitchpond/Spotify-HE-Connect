@@ -295,7 +295,6 @@ def getAccessToken(){
     state.accessToken = state.accessToken? it : createAccessToken()
 }
 
-//Parse the web URI into a Spotify API URI.
 //Returns: Map (type: String, id: String)
 Map parseSpotifyUri(uri) {
     def webUri = new URI(uri)
@@ -309,4 +308,8 @@ Map parseSpotifyUri(uri) {
 
 String toQueryString(Map m) {
 	return m.collect { k, v -> "${k}=${URLEncoder.encode(v.toString())}" }.sort().join("&")
+}
+
+private isHubitat(){
+ 	return hubUID != null   
 }
