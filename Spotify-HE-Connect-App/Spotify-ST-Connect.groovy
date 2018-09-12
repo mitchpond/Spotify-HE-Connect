@@ -225,14 +225,18 @@ def getSpotifyNowPlaying() {
     }
 }
 
-boolean setSpotifyPlaybackState(playbackState, uri = null) {
+boolean setSpotifyPlaybackState(playbackState, uri = null, device = null) {
 	//def itemToPlay = [:]
     if (uri) itemToPlay = parseSpotifyUri(uri)
     refreshAuthToken()
-
+	log.debug "Device: "+device
     def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
+    def dni = device?.device.deviceNetworkId?: null
+    def reqParams = dni? [device_id: dni] : null
     def reqBody = [:]
+    log.debug dni
+    log.debug "Params "+reqParams
     if (itemToPlay?.type in ["album","artist","playlist"]) {
         reqBody = [context_uri: "spotify:${itemToPlay.type}:${itemToPlay.id}"]
     } 
@@ -241,12 +245,12 @@ boolean setSpotifyPlaybackState(playbackState, uri = null) {
     }
     try {
         if (playbackState in ["play","pause"]) {
-            httpPut(uri: reqUri, headers: reqHeader, body: JsonOutput.toJson(reqBody)) { resp ->
+            httpPut(uri: reqUri, headers: reqHeader, query: reqParams, body: JsonOutput.toJson(reqBody)) { resp ->
                 if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
             }
         } else if (playbackState in ["next","previous"]) {
             
-            httpPost(uri: reqUri, headers: reqHeader) { resp ->
+            httpPost(uri: reqUri, headers: reqHeader, query: reqParams) { resp ->
                 if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
             }
         }
@@ -260,7 +264,7 @@ boolean setSpotifyPlaybackState(playbackState, uri = null) {
 }
 
 def playTrack(device, uri = null) {
-    if(setSpotifyPlaybackState("play", uri)) device.generateEvent(["status":"playing"])
+    if(setSpotifyPlaybackState("play", uri, device)) device.generateEvent(["status":"playing"])
 }
 //Can't use pause() as this is reserved
 def pauseTrack(device) {
