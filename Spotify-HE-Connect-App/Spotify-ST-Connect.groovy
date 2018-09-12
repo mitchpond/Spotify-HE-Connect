@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
+import groovy.json.JsonOutput
 
 definition(
     name:           "Spotify-HE Connect",
@@ -225,22 +226,22 @@ def getSpotifyNowPlaying() {
 }
 
 boolean setSpotifyPlaybackState(playbackState, uri = null) {
-    if (uri) def itemToPlay = parseSpotifyUri(uri)
-
+	//def itemToPlay = [:]
+    if (uri) itemToPlay = parseSpotifyUri(uri)
     refreshAuthToken()
 
     def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
     def reqBody = [:]
-    if (itemToPlay.type in ["album","artist","playlist"]) {
+    if (itemToPlay?.type in ["album","artist","playlist"]) {
         reqBody = [context_uri: "spotify:${itemToPlay.type}:${itemToPlay.id}"]
     } 
-    else if (itemToPlay.type == "track") {
-        reqBody = [context_uri: "[uris: [spotify:${itemToPlay.type}:${itemToPlay.id}]"]
+    else if (itemToPlay?.type == "track") {
+        reqBody = [uris: ["spotify:${itemToPlay.type}:${itemToPlay.id}"]]
     }
     try {
         if (playbackState in ["play","pause"]) {
-            httpPut(uri: reqUri, headers: reqHeader, body: reqBody) { resp ->
+            httpPut(uri: reqUri, headers: reqHeader, body: JsonOutput.toJson(reqBody)) { resp ->
                 if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
             }
         } else if (playbackState in ["next","previous"]) {
@@ -252,6 +253,7 @@ boolean setSpotifyPlaybackState(playbackState, uri = null) {
     } catch(groovyx.net.http.HttpResponseException e) {
         if (playbackState in ["next","previous"] && e.statusCode == 403)
             log.debug "Could not get ${playbackState} track. End of list."
+        else log.debug e
         return false
     }
     return true
