@@ -35,7 +35,7 @@ definition(
 
 private getSpotifyClientId() { "3777d6e19dad4b46851423d34ffee2a0" }
 private getSpotifyClientSecret() { "eb9a1caad5f34ababb6bf494b9ce0364" }
-private getCallbackUrl() { "https://graph.api.smartthings.com/oauth/callback" }
+private getCallbackUrl() { "https://cloud.hubitat.com/api/cffd7747-9fa5-4fd9-97c8-7de7027f4425/apps/113/oauth/callback?access_token=863aa7b1-044f-4a34-82c7-a80cc17e70d8" }
 private getApiScopes() { "user-read-playback-state user-modify-playback-state" }
 private getApiUrl()	{ "https://api.spotify.com" }
 private getTokenUrl() { "https://accounts.spotify.com/api/token" }
@@ -64,14 +64,14 @@ def setup() {
 def authPage() {
     if(!state.accessToken) createAccessToken()
 
-    def redirectUrl = "${getApiServerUrl()}/oauth/initialize?appId=${app.id}&access_token=${state.accessToken}&apiServerUrl=${getApiServerUrl()}"
+    def redirectUrl = "${getFullApiServerUrl()}/oauth/initialize?appId=${app.id}&access_token=${state.accessToken}&apiServerUrl=${getApiServerUrl()}"
     
     if(!state.authToken){
     	log.debug "No authToken yet, sending user to Spotify..."
    	 	return dynamicPage(name: "Credentials", title: "Login", nextPage: "") {
             section {
                 paragraph "Click below to connect with Spotify"
-                href(url: redirectUrl, style: "embedded", required: true, title: "Spotify Connect", description: "Click to connect")
+                href(url: oauthInitUrl(), style: "embedded", required: true, title: "Spotify Connect", description: "Click to connect")
             }
     	}
     }
@@ -102,7 +102,7 @@ def oauthInitUrl() {
                         state:          "${state.oAuthInitState}",
                         scope:          apiScopes,
                         show_dialog:    "false"]
-    redirect(location: "https://accounts.spotify.com/authorize?${toQueryString(oAuthParams)}")
+    return "https://accounts.spotify.com/authorize?${toQueryString(oAuthParams)}"
 }
 
 def callback(){
@@ -229,7 +229,7 @@ boolean setSpotifyPlaybackState(playbackState, uri = null, device = null) {
 	//def itemToPlay = [:]
     if (uri) itemToPlay = parseSpotifyUri(uri)
     refreshAuthToken()
-	log.debug "Device: "+device
+	log.debug "Device: "+device + itemToPlay
     def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
     def dni = device?.device.deviceNetworkId?: null
@@ -245,7 +245,7 @@ boolean setSpotifyPlaybackState(playbackState, uri = null, device = null) {
     }
     try {
         if (playbackState in ["play","pause"]) {
-            httpPut(uri: reqUri, headers: reqHeader, query: reqParams, body: JsonOutput.toJson(reqBody)) { resp ->
+            httpPutJson(uri: reqUri, headers: reqHeader, query: reqParams, body: JsonOutput.toJson(reqBody)) { resp ->
                 if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
             }
         } else if (playbackState in ["next","previous"]) {
@@ -264,11 +264,12 @@ boolean setSpotifyPlaybackState(playbackState, uri = null, device = null) {
 }
 
 def playTrack(device, uri = null) {
+    log.debug uri
     if(setSpotifyPlaybackState("play", uri, device)) device.generateEvent(["status":"playing"])
 }
 //Can't use pause() as this is reserved
 def pauseTrack(device) {
-    if(setSpotifyPlaybackState("pause"), null, device) device.generateEvent(["status":"paused"])
+    if(setSpotifyPlaybackState("pause", null, device)) device.generateEvent(["status":"paused"])
 }
 
 def nextTrack() {

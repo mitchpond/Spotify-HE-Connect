@@ -122,10 +122,12 @@ void setPlaybackStatus() {
 }
 
 void play() {
+    log.debug "Play called"
 	parent.playTrack(this)
 }
 
 void pause() {
+    log.debug "Pause called"
 	parent.pauseTrack(this)
 }
 
@@ -154,6 +156,7 @@ void previousTrack() {
 
 //Play Spotify Album/Playlist/Track URI
 void playTrack(track) {
+    log.debug "playTrack called for device ${device}, track ${track}"
 	parent.playTrack(this, track)
 }
 
