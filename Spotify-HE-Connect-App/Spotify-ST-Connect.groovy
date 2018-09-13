@@ -268,7 +268,7 @@ def playTrack(device, uri = null) {
 }
 //Can't use pause() as this is reserved
 def pauseTrack(device) {
-    if(setSpotifyPlaybackState("pause")) device.generateEvent(["status":"paused"])
+    if(setSpotifyPlaybackState("pause"), null, device) device.generateEvent(["status":"paused"])
 }
 
 def nextTrack() {
