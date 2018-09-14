@@ -122,7 +122,7 @@ void setPlaybackStatus() {
 }
 
 void play() {
-	parent.play(this)
+	parent.playTrack(this)
 }
 
 void pause() {
@@ -145,16 +145,16 @@ void setPlaybackShuffle() {
 }
 
 void nextTrack() {
-	parent.nextTrack()
+	parent.nextTrack(this)
 }
 
 void previousTrack() {
-	parent.previousTrack()
+	parent.previousTrack(this)
 }
 
-void playTrack() {
-	log.debug "Executing 'playTrack'"
-	// TODO: handle 'playTrack' command
+//Play Spotify Album/Playlist/Track URI
+void playTrack(track) {
+	parent.playTrack(this, track)
 }
 
 void setLevel() {

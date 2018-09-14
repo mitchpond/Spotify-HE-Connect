@@ -13,6 +13,10 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
+<<<<<<< HEAD
+import groovy.json.JsonOutput
+=======
+>>>>>>> dev
 
 definition(
     name:           "Spotify-HE Connect",
@@ -187,18 +191,6 @@ def updateDeviceMap() {
     }
 }
 
-// def updateDeviceStatus(){
-//     getSpotifyNowPlaying()
-//     def devs = getChildDevices()
-//     devs.each { dev ->
-//         if ((state.spotifyDevices.find{it.value.id == dev.dni})
-//     }
-//     if (!state.spotifyNowPlaying.is_Playing)
-//         devs.each { dev ->
-//             dev.generateEvent("")
-//         }
-// }
-
 def updateNowPlaying(){
     log.debug "Updating Now Playing..."
     getSpotifyNowPlaying()
@@ -236,44 +228,67 @@ def getSpotifyNowPlaying() {
     }
 }
 
-boolean setSpotifyPlaybackState(playbackState) {
+boolean setSpotifyPlaybackState(playbackState, device = null, uri = null) {
+	//def itemToPlay = [:]
+    if (uri) itemToPlay = parseSpotifyUri(uri)
     refreshAuthToken()
-
+	// log.debug "Device: "+device
     def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
+    def dni = device?.device.deviceNetworkId?: null
+    def reqParams = dni? [device_id: dni] : null
+    def reqBody = [:]
+    // log.debug dni
+    // log.debug "Params "+reqParams
+    if (itemToPlay?.type in ["album","artist","playlist"]) {
+        reqBody = [context_uri: "spotify:${itemToPlay.type}:${itemToPlay.id}"]
+    } 
+    else if (itemToPlay?.type == "track") {
+        reqBody = [uris: ["spotify:${itemToPlay.type}:${itemToPlay.id}"]]
+    }
     try {
         if (playbackState in ["play","pause"]) {
-            httpPut(uri: reqUri, headers: reqHeader) { resp ->
+            httpPut(uri: reqUri, 
+                    headers: reqHeader, 
+                    query: reqParams, 
+                    body: JsonOutput.toJson(reqBody), 
+                    requestContentType: "application/json") 
+            { resp ->
                 if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
             }
         } else if (playbackState in ["next","previous"]) {
             
-            httpPost(uri: reqUri, headers: reqHeader) { resp ->
+            httpPost(uri: reqUri, headers: reqHeader, query: reqParams) { resp ->
                 if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
             }
         }
     } catch(groovyx.net.http.HttpResponseException e) {
         if (playbackState in ["next","previous"] && e.statusCode == 403)
             log.debug "Could not get ${playbackState} track. End of list."
+        else log.debug e
         return false
     }
     return true
 }
 
-def play(device) {
-    if(setSpotifyPlaybackState("play")) device.generateEvent(["status":"playing"])
+def playTrack(device, uri = null) {
+    if(setSpotifyPlaybackState("play", device, uri)) device.generateEvent(["status":"playing"])
+    updateNowPlaying()
 }
 //Can't use pause() as this is reserved
 def pauseTrack(device) {
-    if(setSpotifyPlaybackState("pause")) device.generateEvent(["status":"paused"])
+    if(setSpotifyPlaybackState("pause", device)) device.generateEvent(["status":"paused"])
+    updateNowPlaying()
 }
 
-def nextTrack() {
-    setSpotifyPlaybackState("next")
+def nextTrack(device) {
+    setSpotifyPlaybackState("next", device)
+    updateNowPlaying()
 }
 
-def previousTrack() {
-    setSpotifyPlaybackState("previous")
+def previousTrack(device) {
+    setSpotifyPlaybackState("previous", device)
+    updateNowPlaying()
 }
 
 def createChildDevices() {
@@ -298,8 +313,25 @@ def getAccessToken(){
     state.accessToken = state.accessToken? it : createAccessToken()
 }
 
+//Returns: Map (type: String, id: String)
+Map parseSpotifyUri(uri) {
+    def webUri = new URI(uri)
+    if (webUri.host == "open.spotify.com") {
+        def type = webUri.getPath().split("/").getAt(1)
+        def id = webUri.getPath().split("/").getAt(2)
+        return ["type": type, "id": id]
+    }
+    return null
+}
+
 String toQueryString(Map m) {
 	return m.collect { k, v -> "${k}=${URLEncoder.encode(v.toString())}" }.sort().join("&")
+}
+
+//SmartThings does not support runInMillis, so this delegates to the proper method for the platform
+void runIn(BigDecimal t, String m) {
+    if (isHubitat) runInMillis(t*1000,m)
+    else runIn(t,m)
 }
 
 private isHubitat(){
