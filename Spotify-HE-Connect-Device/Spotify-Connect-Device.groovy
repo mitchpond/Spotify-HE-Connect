@@ -145,11 +145,11 @@ void setPlaybackShuffle() {
 }
 
 void nextTrack() {
-	parent.nextTrack()
+	parent.nextTrack(this)
 }
 
 void previousTrack() {
-	parent.previousTrack()
+	parent.previousTrack(this)
 }
 
 //Play Spotify Album/Playlist/Track URI

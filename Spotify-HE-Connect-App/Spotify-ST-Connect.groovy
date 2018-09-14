@@ -225,18 +225,18 @@ def getSpotifyNowPlaying() {
     }
 }
 
-boolean setSpotifyPlaybackState(playbackState, uri = null, device = null) {
+boolean setSpotifyPlaybackState(playbackState, device = null, uri = null) {
 	//def itemToPlay = [:]
     if (uri) itemToPlay = parseSpotifyUri(uri)
     refreshAuthToken()
-	log.debug "Device: "+device
+	// log.debug "Device: "+device
     def reqUri = apiUrl + spotifyNowPlayingEndpoint + "/${playbackState}"
     def reqHeader = [Authorization: "Bearer ${state.authToken}"]
     def dni = device?.device.deviceNetworkId?: null
     def reqParams = dni? [device_id: dni] : null
     def reqBody = [:]
-    log.debug dni
-    log.debug "Params "+reqParams
+    // log.debug dni
+    // log.debug "Params "+reqParams
     if (itemToPlay?.type in ["album","artist","playlist"]) {
         reqBody = [context_uri: "spotify:${itemToPlay.type}:${itemToPlay.id}"]
     } 
@@ -245,7 +245,12 @@ boolean setSpotifyPlaybackState(playbackState, uri = null, device = null) {
     }
     try {
         if (playbackState in ["play","pause"]) {
-            httpPut(uri: reqUri, headers: reqHeader, query: reqParams, body: JsonOutput.toJson(reqBody)) { resp ->
+            httpPut(uri: reqUri, 
+                    headers: reqHeader, 
+                    query: reqParams, 
+                    body: JsonOutput.toJson(reqBody), 
+                    requestContentType: "application/json") 
+            { resp ->
                 if(resp.status != 204) log.debug "Failed to set playback state!: ${resp.message}"
             }
         } else if (playbackState in ["next","previous"]) {
@@ -264,19 +269,23 @@ boolean setSpotifyPlaybackState(playbackState, uri = null, device = null) {
 }
 
 def playTrack(device, uri = null) {
-    if(setSpotifyPlaybackState("play", uri, device)) device.generateEvent(["status":"playing"])
+    if(setSpotifyPlaybackState("play", device, uri)) device.generateEvent(["status":"playing"])
+    updateNowPlaying()
 }
 //Can't use pause() as this is reserved
 def pauseTrack(device) {
-    if(setSpotifyPlaybackState("pause"), null, device) device.generateEvent(["status":"paused"])
+    if(setSpotifyPlaybackState("pause", device)) device.generateEvent(["status":"paused"])
+    updateNowPlaying()
 }
 
-def nextTrack() {
-    setSpotifyPlaybackState("next")
+def nextTrack(device) {
+    setSpotifyPlaybackState("next", device)
+    updateNowPlaying()
 }
 
-def previousTrack() {
-    setSpotifyPlaybackState("previous")
+def previousTrack(device) {
+    setSpotifyPlaybackState("previous", device)
+    updateNowPlaying()
 }
 
 def createChildDevices() {
@@ -314,6 +323,12 @@ Map parseSpotifyUri(uri) {
 
 String toQueryString(Map m) {
 	return m.collect { k, v -> "${k}=${URLEncoder.encode(v.toString())}" }.sort().join("&")
+}
+
+//SmartThings does not support runInMillis, so this delegates to the proper method for the platform
+void runIn(BigDecimal t, String m) {
+    if (isHubitat) runInMillis(t*1000,m)
+    else runIn(t,m)
 }
 
 private isHubitat(){
