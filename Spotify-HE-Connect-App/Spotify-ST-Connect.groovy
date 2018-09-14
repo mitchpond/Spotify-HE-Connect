@@ -13,7 +13,10 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
+<<<<<<< HEAD
 import groovy.json.JsonOutput
+=======
+>>>>>>> dev
 
 definition(
     name:           "Spotify-HE Connect",
