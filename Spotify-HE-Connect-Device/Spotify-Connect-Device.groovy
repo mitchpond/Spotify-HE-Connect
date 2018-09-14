@@ -157,9 +157,8 @@ void playTrack(track) {
 	parent.playTrack(this, track)
 }
 
-void setLevel() {
-	log.debug "Executing 'setLevel'"
-	// TODO: handle 'setLevel' command
+void setLevel(volLevel) {
+	parent.setLevel(this,volLevel)
 }
 
 void setTrack() {

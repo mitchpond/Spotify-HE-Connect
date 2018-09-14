@@ -13,10 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  */
-<<<<<<< HEAD
 import groovy.json.JsonOutput
-=======
->>>>>>> dev
 
 definition(
     name:           "Spotify-HE Connect",
@@ -44,6 +41,7 @@ private getApiUrl()	{ "https://api.spotify.com" }
 private getTokenUrl() { "https://accounts.spotify.com/api/token" }
 private getSpotifyListDevicesEndpoint() { "/v1/me/player/devices" }
 private getSpotifyNowPlayingEndpoint() { "/v1/me/player" }
+private getSpotifyVolumeEndpoint() { "/v1/me/player/volume"}
 
 mappings {
     path("/oauth/initialize")   {action:    [GET:  "oauthInitUrl"]}
@@ -271,6 +269,31 @@ boolean setSpotifyPlaybackState(playbackState, device = null, uri = null) {
     return true
 }
 
+boolean setSpotifyVolumeLevel(volLevel, device) {
+    refreshAuthToken()
+
+    def reqUri = apiUrl + spotifyVolumeEndpoint
+    def reqHeader = [Authorization: "Bearer ${state.authToken}"]
+
+    def dni = device?.device.deviceNetworkId?: null
+    def reqParams = [device_id: dni, volume_percent: volLevel]
+
+    try {
+        httpPut(uri: reqUri, 
+                headers: reqHeader, 
+                query: reqParams) 
+        { resp ->
+            if(resp.status == 204) return true
+        }
+    } catch(groovyx.net.http.HttpResponseException e) {
+        if (e.statusCode == 404)
+            log.debug "Device ${dni} not found."
+        else log.debug e
+        return false
+    }
+    return true
+}
+
 def playTrack(device, uri = null) {
     if(setSpotifyPlaybackState("play", device, uri)) device.generateEvent(["status":"playing"])
     updateNowPlaying()
@@ -289,6 +312,10 @@ def nextTrack(device) {
 def previousTrack(device) {
     setSpotifyPlaybackState("previous", device)
     updateNowPlaying()
+}
+
+def setLevel(device, volLevel) {
+    if (setSpotifyVolumeLevel(volLevel, device)) device.generateEvent(["level":volLevel])
 }
 
 def createChildDevices() {
