@@ -15,12 +15,7 @@
  */
 metadata {
 	definition (name: "Spotify-Connect-Device", namespace: "mitchpond", author: "Mitch Pond") {
-		//capability "Audio Mute"
-		//capability "Audio Track Data"
-		//capability "Media Playback"
-		//capability "Media Playback Repeat"
-		//capability "Media Playback Shuffle"
-		//capability "Media Track Control"
+
 		capability "Music Player"
 		capability "Refresh"
         capability "Polling"
@@ -62,9 +57,9 @@ metadata {
 				state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh", backgroundColor:"#ffffff"
 			}
 
-    main "mediaMulti"
-    details(["mediaMulti","refresh"])
-}
+			main "mediaMulti"
+			details(["mediaMulti","refresh"])
+		}
 
 	}
 }
@@ -72,18 +67,6 @@ metadata {
 // parse events into attributes
 def parse(String description) {
 	log.debug "Parsing '${description}'"
-	// TODO: handle 'mute' attribute
-	// TODO: handle 'audioTrackData' attribute
-	// TODO: handle 'playbackStatus' attribute
-	// TODO: handle 'supportedPlaybackCommands' attribute
-	// TODO: handle 'playbackRepeatMode' attribute
-	// TODO: handle 'playbackShuffle' attribute
-	// TODO: handle 'supportedTrackControlCommands' attribute
-	// TODO: handle 'status' attribute
-	// TODO: handle 'level' attribute
-	// TODO: handle 'trackDescription' attribute
-	// TODO: handle 'trackData' attribute
-
 }
 
 def generateEvent(Map results) {
