@@ -35,7 +35,8 @@ definition(
 
 private getSpotifyClientId() { "3777d6e19dad4b46851423d34ffee2a0" }
 private getSpotifyClientSecret() { "eb9a1caad5f34ababb6bf494b9ce0364" }
-private getCallbackUrl() { "https://graph.api.smartthings.com/oauth/callback" }
+private getCallbackUrl() { "${fullApiServerUrl}/oauth/callback" }
+private getInitUrl() { "${fullApiServerUrl}/oauth/initialize" }
 private getApiScopes() { "user-read-playback-state user-modify-playback-state" }
 private getApiUrl()	{ "https://api.spotify.com" }
 private getTokenUrl() { "https://accounts.spotify.com/api/token" }
@@ -50,14 +51,15 @@ mappings {
 
 preferences {
     page(name: "setup", title: "Spotify (Connect) for Hubitat Elevation/SmartThings", nextPage: "", install: true, uninstall: true)
-    page(name: "Credentials", title: "Log in to Spotify", content: "authPage", nextPage: "")
+    page(name: "Credentials", content: "authPage", nextPage: "")
 }
 
 def setup() {
     dynamicPage(name: "setup", install: true, uninstall: true){
         section{
+			paragraph "You will need to create a Spotify Developer account to use this app.\n" +
+					  "Your redirect URL and access token can be found in the OAuth section below."
             href(page: "Credentials", title: "Manage Spotify permissions")
-            //href(page: "Devices", title: "")
         }
     }
 }
@@ -65,14 +67,22 @@ def setup() {
 def authPage() {
     if(!state.accessToken) createAccessToken()
 
-    def redirectUrl = "${getApiServerUrl()}/oauth/initialize?appId=${app.id}&access_token=${state.accessToken}&apiServerUrl=${getApiServerUrl()}"
-    
     if(!state.authToken){
     	log.debug "No authToken yet, sending user to Spotify..."
+		state.oAuthInitState = UUID.randomUUID().toString()
+    	
+    	def oAuthParams = [ response_type:  "code",
+                        client_id:      spotifyClientId,
+					    redirect_uri:   callbackUrl+"?access_token=${state.accessToken}",
+                        state:          "${state.oAuthInitState}",
+                        scope:          apiScopes,
+                        show_dialog:    "false"]
    	 	return dynamicPage(name: "Credentials", title: "Login", nextPage: "") {
             section {
+				paragraph "You will need to create a Spotify Developer account to use this app.\n" +
+					"Your redirect URL: ${oAuthParams.redirect_uri}\n"
                 paragraph "Click below to connect with Spotify"
-                href(url: redirectUrl, style: "embedded", required: true, title: "Spotify Connect", description: "Click to connect")
+                href(url: "https://accounts.spotify.com/authorize?${toQueryString(oAuthParams)}", title: "Spotify Connect", description: "Click to connect")
             }
     	}
     }
@@ -82,7 +92,7 @@ def authPage() {
         return dynamicPage(name: "Credentials", title: "Connected to Spotify") {
             section {
                 paragraph "You are logged in to Spotify"
-                href(url:"", title: "Log out of Spotify", description: "")
+                href(url:"", title: "Log out of Spotify",enabled: false, description: "")
             }
         	section {
             	paragraph "Select devices to install.\nYou may return to this menu to add or remove devices at any time."
@@ -90,20 +100,6 @@ def authPage() {
             }
         }
     }
-}
-
-def oauthInitUrl() {
-	log.debug "Entered OAuth init..."
-    state.oAuthInitState = UUID.randomUUID().toString()
-    //log.debug "Sending oAuth state of: ${state.oAuthInitState}"
-    
-    def oAuthParams = [ response_type:  "code",
-                        client_id:      spotifyClientId,
-                        redirect_uri:   callbackUrl,
-                        state:          "${state.oAuthInitState}",
-                        scope:          apiScopes,
-                        show_dialog:    "false"]
-    redirect(location: "https://accounts.spotify.com/authorize?${toQueryString(oAuthParams)}")
 }
 
 def callback(){
@@ -115,7 +111,7 @@ def callback(){
     	def reqURI = "https://accounts.spotify.com/api/token"
     	def reqBody = [	grant_type:		"authorization_code",
                        code:			params.code,
-                       redirect_uri:   	callbackUrl,
+                       redirect_uri:   	callbackUrl+"?access_token=${state.accessToken}",
                        client_id:		spotifyClientId,
                        client_secret:	spotifyClientSecret]
         
@@ -126,12 +122,23 @@ def callback(){
             state.expiresIn = resp.data.expires_in
         }
         
-        //log.debug "API access token: ${state.authToken}"
-        //log.debug "API scope: ${state.scope}"
-        //log.debug "API refresh token: ${state.refreshToken}"
+        log.debug "API access token: ${state.authToken}"
+        log.debug "API scope: ${state.scope}"
+        log.debug "API refresh token: ${state.refreshToken}"
         
-        if (state.authToken) "Successfully connected!"
+		if (state.authToken) {
+			log.debug "Successfully connected!"
+			render contentType: "text/html", data: "<P>Spotify auth successful! Press the back button.</P>"
+		}
+		else {
+			log.debug "Something went wrong!"
+			render contentType: "text/html", data: "<P>Spotify auth failed! Press the back button.</P>"
+		}
     }
+	else {
+		log.debug "Params state does not match state returned from Spotify!"
+		render contentType: "text/html", data: "<P>Spotify auth failed! Press the back button.</P>"
+	}
 }
 
 def refreshAuthToken() {
@@ -191,7 +198,7 @@ def updateDeviceMap() {
 
 def updateNowPlaying(){
     log.debug "Updating Now Playing..."
-    getSpotifyNowPlaying()
+	getSpotifyNowPlaying()
     def playingDevice = state.spotifyNowPlaying.device?.id ? getChildDevice(state.spotifyNowPlaying.device.id) : null
     if  (state.spotifyNowPlaying.is_playing && playingDevice) {
     	log.debug "We're playing, so update the playing device"
