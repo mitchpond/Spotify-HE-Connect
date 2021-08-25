@@ -1,7 +1,7 @@
 /**
- *  Spotify-HE-ST Connect
+ *  Spotify-HE Connect
  *
- *  Copyright 2018 Mitch Pond
+ *  Copyright 2021 Mitch Pond
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -19,8 +19,7 @@ definition(
     name:           "Spotify-HE Connect",
     namespace:      "mitchpond",
     author:         "Mitch Pond",
-    description:    "Service manager app for Hubitat Elevation and SmartThings to enable status display and control of Spotify Connect players",
-    category:       "Fun & Social",
+    description:    "Service manager app for Hubitat Elevation to enable status display and control of Spotify Connect players",
     iconUrl: 		"https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
     iconX2Url: 		"https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
     iconX3Url: 		"https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
@@ -35,6 +34,7 @@ definition(
 
 private getSpotifyClientId() { "3777d6e19dad4b46851423d34ffee2a0" }
 private getSpotifyClientSecret() { "eb9a1caad5f34ababb6bf494b9ce0364" }
+private getHubitatRedirectURI() {"https://cloud.hubitat.com/oauth/stateredirect"}
 private getCallbackUrl() { "${fullApiServerUrl}/oauth/callback" }
 private getInitUrl() { "${fullApiServerUrl}/oauth/initialize" }
 private getApiScopes() { "user-read-playback-state user-modify-playback-state" }
@@ -43,53 +43,56 @@ private getTokenUrl() { "https://accounts.spotify.com/api/token" }
 private getSpotifyListDevicesEndpoint() { "/v1/me/player/devices" }
 private getSpotifyNowPlayingEndpoint() { "/v1/me/player" }
 private getSpotifyVolumeEndpoint() { "/v1/me/player/volume"}
+private getOAuthStateString() {"${getHubUID()}/apps/${app.id}/oauth/callback?access_token=${state.accessToken}"}
 
 mappings {
     path("/oauth/initialize")   {action:    [GET:  "oauthInitUrl"]}
     path("/oauth/callback")     {action:    [GET:  "callback"]}
+    path("/callback")     {action:    [GET:  "callback"]}
 }
 
 preferences {
-    page(name: "setup", title: "Spotify (Connect) for Hubitat Elevation/SmartThings", nextPage: "", install: true, uninstall: true)
-    page(name: "Credentials", content: "authPage", nextPage: "")
+    page(name: "setup")
+    page(name: "authPage")
 }
 
 def setup() {
-    dynamicPage(name: "setup", install: true, uninstall: true){
+    dynamicPage(name: "setup", title: "Spotify (Connect) for Hubitat Elevation/SmartThings", install: true, uninstall: true){
         section{
 			paragraph "You will need to create a Spotify Developer account to use this app.\n" +
 					  "Your redirect URL and access token can be found in the OAuth section below."
-            href(page: "Credentials", title: "Manage Spotify permissions")
+            href(page: "authPage", title: "Manage Spotify permissions")
         }
     }
 }
       
 def authPage() {
+    log.debug "Entering Auth page..."
     if(!state.accessToken) createAccessToken()
 
     if(!state.authToken){
     	log.debug "No authToken yet, sending user to Spotify..."
-		state.oAuthInitState = UUID.randomUUID().toString()
-    	
-    	def oAuthParams = [ response_type:  "code",
+        log.debug "OAuth state string: ${OAuthStateString}"
+    	def oAuthParams = [ 
+                        response_type:  "code",
                         client_id:      spotifyClientId,
-					    redirect_uri:   callbackUrl+"?access_token=${state.accessToken}",
-                        state:          "${state.oAuthInitState}",
+					    redirect_uri:   hubitatRedirectURI,
+                        state:          OAuthStateString,
                         scope:          apiScopes,
-                        show_dialog:    "false"]
-   	 	return dynamicPage(name: "Credentials", title: "Login", nextPage: "") {
+                        show_dialog:    "true"
+        ]
+        
+   	 	return dynamicPage(name: "authPage", title: "Login", nextPage: "") {
             section {
-				paragraph "You will need to create a Spotify Developer account to use this app.\n" +
-					"Your redirect URL: ${oAuthParams.redirect_uri}\n"
                 paragraph "Click below to connect with Spotify"
-                href(url: "https://accounts.spotify.com/authorize?${toQueryString(oAuthParams)}", title: "Spotify Connect", description: "Click to connect")
+                href(url: "https://accounts.spotify.com/authorize?${toQueryString(oAuthParams)}", style: "external", title: "Spotify Connect", description: "Click to connect")
             }
     	}
     }
     else {
     	log.debug "authToken found"
         getSpotifyDevices()
-        return dynamicPage(name: "Credentials", title: "Connected to Spotify") {
+        return dynamicPage(name: "authPage", title: "Connected to Spotify", nextPage: "") {
             section {
                 paragraph "You are logged in to Spotify"
                 href(url:"", title: "Log out of Spotify",enabled: false, description: "")
@@ -103,15 +106,15 @@ def authPage() {
 }
 
 def callback(){
-    log.debug "Entered callback..."
-    //log.debug "Received code: ${params.code}"
-    //log.debug "Recevied state: ${params.state}"
+    log.debug "Entering OAuth callback..."
+    log.debug "Received code: ${params.code}"
+    log.debug "Recevied state: ${params.state}"
     
-    if (params.state==state.oAuthInitState) {
+    if (params.state==OAuthStateString) {
     	def reqURI = "https://accounts.spotify.com/api/token"
     	def reqBody = [	grant_type:		"authorization_code",
                        code:			params.code,
-                       redirect_uri:   	callbackUrl+"?access_token=${state.accessToken}",
+                       redirect_uri:   	hubitatRedirectURI,
                        client_id:		spotifyClientId,
                        client_secret:	spotifyClientSecret]
         
@@ -128,16 +131,16 @@ def callback(){
         
 		if (state.authToken) {
 			log.debug "Successfully connected!"
-			render contentType: "text/html", data: "<P>Spotify auth successful! Press the back button.</P>"
+			render contentType: "text/html", data: "<P>Spotify auth successful! Close this window to continue setup.</P>"
 		}
 		else {
 			log.debug "Something went wrong!"
-			render contentType: "text/html", data: "<P>Spotify auth failed! Press the back button.</P>"
+			render contentType: "text/html", data: "<P>Spotify auth failed! Close this window to return to setup.</P>"
 		}
     }
 	else {
 		log.debug "Params state does not match state returned from Spotify!"
-		render contentType: "text/html", data: "<P>Spotify auth failed! Press the back button.</P>"
+		render contentType: "text/html", data: "<P>Spotify auth failed! CLose this window to return to setup.</P>"
 	}
 }
 
